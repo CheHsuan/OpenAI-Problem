@@ -67,7 +67,9 @@ def onehot_encoding(target, dim=2):
 
 def choose_action(probability, dim=2):
     action = np.random.choice(dim, 1, p=probability[0])[0]
-    return action
+    actionblank = np.zeros(2)
+    actionblank[action] = 1
+    return actionblank, action
 
 def run_episode(env, policy_net, value_net, sess):
     tf_observation, tf_r_probability, tf_advantage, p_probability, policy_optimizer = policy_net
@@ -76,16 +78,14 @@ def run_episode(env, policy_net, value_net, sess):
     observation = env.reset()
     total_reward = 0
     obs_record = list()
-    prob_record = list()
+    act_record = list()
     for t in xrange(200):
         probability = p_probability.eval(feed_dict={tf_observation : [observation]})
-        action = choose_action(probability)
+        actionblank, action = choose_action(probability)
         obs_record.append(observation)
-        observation, reward, done, info = env.step(action)
-        total_reward += reward        
-        actionblank = np.zeros(2)
-        actionblank[action] = 1
-        prob_record.append(actionblank)
+        observation, reward, done, info = env.step(action)        
+        act_record.append(actionblank)
+        total_reward += reward
         if done:
             print "Episode finished after %d timesteps" % (t+1)
             break
@@ -111,7 +111,7 @@ def run_episode(env, policy_net, value_net, sess):
     sess.run(value_optimizer,feed_dict={tf_state : obs_record, tf_r_value : state_value_vec})
     # train policy network
     transition_vec = np.expand_dims(transitions, axis=1)
-    feed_dict = {tf_observation : obs_record, tf_r_probability : prob_record, tf_advantage : transition_vec}
+    feed_dict = {tf_observation : obs_record, tf_r_probability : act_record, tf_advantage : transition_vec}
     sess.run(policy_optimizer, feed_dict=feed_dict)
 
     return total_reward 
