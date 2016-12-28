@@ -6,7 +6,7 @@ import tensorflow as tf
 
 def policy_network():
     input_dim  = 80 * 80
-    hidden_dim = 200 
+    hidden_dim = 200
     output_dim = 2
     with tf.variable_scope("policy"):
         # Define input and output dimension.
@@ -17,7 +17,7 @@ def policy_network():
         w1 = tf.Variable(tf.truncated_normal([input_dim, hidden_dim]))
         b1 = tf.Variable(tf.zeros([hidden_dim]))
         w2 = tf.Variable(tf.truncated_normal([hidden_dim, output_dim]))
-        b2 = tf.Variable(tf.zeros([output_dim]))   
+        b2 = tf.Variable(tf.zeros([output_dim]))
 
         # Training computation.
         hidden_layer = tf.nn.relu(tf.matmul(observation, w1) + b1)
@@ -31,14 +31,25 @@ def policy_network():
         return observation, action, probability, policy_optimizer
 
 class Pong:
-    def __init__(self): 
+    def __init__(self, path=None): 
         self.input_dim = 80 * 80
         self.output_dim = 2
         self.gamma = 0.9
         self.env = gym.make('Pong-v0')
         self.tf_observation, self.tf_action, self.tf_probability, self.tf_policy_optimizer = policy_network()
         self.sess = tf.InteractiveSession()
-        self.sess.run(tf.initialize_all_variables()) 
+        self.saver = tf.train.Saver()
+        if path is None:
+            self.sess.run(tf.initialize_all_variables())
+        else:
+            self.load(path)
+
+    def save(self):
+        self.saver.save(self.sess, "./model")
+
+    def load(self, path):
+        print "Load pretrained model"
+        self.saver.restore(self.sess, path)
 
     def choose_action(self, state):
         probability = self.tf_probability.eval(feed_dict={self.tf_observation : [state]})[0]
@@ -74,12 +85,11 @@ class Pong:
                 cur_state = self.encode_state(observation)
                 diff = cur_state - prev_state if prev_state is not None else np.zeros(self.input_dim)
                 prev_state = cur_state
-                
                 action, action_row = self.choose_action(diff)
                 observation, reward, done, info = self.env.step(action)
                 action_seq.append(action_row)
                 state_seq.append(diff)
-                
+
                 discount_factor *= self.gamma
                 if reward == 1:
                     # player gets a score
@@ -104,5 +114,6 @@ class Pong:
                     break
 
 if __name__ == "__main__":
-    pong = Pong();
+    pong = Pong(sys.argv[2]);
     pong.run(int(sys.argv[1]))
+    pong.save()
